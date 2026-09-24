@@ -1,0 +1,16 @@
+.vscode/**
+src/**
+scripts/**
+tsconfig.json
+.gitignore
+# 打包只带运行时依赖：@node-rs/jieba（含 Rust 原生 .node 二进制）
+# 其余 node_modules（devDependencies: typescript, @types/*）排除
+node_modules/**
+!node_modules/@node-rs/**
+!node_modules/@node-rs/jieba/**
+!node_modules/@node-rs/jieba/**/*
+!node_modules/@node-rs/jieba-win32-x64-msvc/**
+!node_modules/@node-rs/jieba-win32-x64-msvc/**/*
+*.vsix
+.vsix-tmp/**
+.vsix-tmp.zip

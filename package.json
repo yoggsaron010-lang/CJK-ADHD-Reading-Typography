@@ -1,0 +1,177 @@
+{
+  "name": "CJK-ADHD-Reading-Typography",
+  "displayName": "CJK-ADHD-Reading-Typography · 中文 ADHD 阅读辅助",
+  "description": "行焦点/阅读尺 · 阅读排版（中文 ADHD 阅读辅助）",
+  "version": "0.15.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cjkReading.toggleWordBoundary",
+        "title": "CJK-ADHD-Reading-Typography: 切换「词界显化」 / Toggle Word Boundary Spacing"
+      },
+      {
+        "command": "cjkReading.toggleLineFocus",
+        "title": "CJK-ADHD-Reading-Typography: 切换「行焦点/阅读尺」 / Toggle Line Focus (Reading Mask)"
+      },
+      {
+        "command": "cjkReading.toggleTypography",
+        "title": "CJK-ADHD-Reading-Typography: 切换「阅读排版」 / Toggle Reading Typography"
+      },
+      {
+        "command": "cjkReading.openPanel",
+        "title": "CJK-ADHD-Reading-Typography: 打开控制面板 / Open Panel"
+      }
+    ],
+    "configuration": {
+      "title": "CJK-ADHD-Reading-Typography · 中文 ADHD 阅读辅助",
+      "properties": {
+        "cjkReading.wordBoundary.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "功能 1：词界显化——jieba 风格分词，在词块末尾加视觉间距，降低词切分负担。可关闭。"
+        },
+        "cjkReading.wordBoundary.spacing": {
+          "type": "string",
+          "default": "0.25em",
+          "description": "词块末尾间距（CSS margin-right 值）。推荐 0.2~0.3em，过大反而有害（U 型关系）。"
+        },
+        "cjkReading.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "总开关。关闭后所有功能停用（装饰器清空，排版设置恢复原值）。"
+        },
+        "cjkReading.includeLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "仅对这些 languageId 启用（如 [\"markdown\",\"html\"]）。留空 = 全部文件。仅影响词界显化与行焦点两个装饰器功能。"
+        },
+        "cjkReading.excludeLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "对这些 languageId 禁用（如 [\"json\",\"log\"]）。仅影响词界显化与行焦点两个装饰器功能。"
+        },
+        "cjkReading.paddingLines": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 500,
+          "description": "可视区域上下多渲染的行数（滚动缓冲）。"
+        },
+        "cjkReading.lineFocus.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "功能 2：行焦点/阅读尺——暗化阅读带之外的文本，屏蔽外围视觉干扰，减少回读。可关闭。"
+        },
+        "cjkReading.lineFocus.bandLines": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "阅读带高度（行数）。1 = 只留当前行；3 = 阅读尺。"
+        },
+        "cjkReading.lineFocus.anchor": {
+          "type": "string",
+          "enum": [
+            "cursor",
+            "viewport"
+          ],
+          "enumDescriptions": [
+            "阅读带跟随光标（Shift+↓ 选中多行时覆盖整个选区）",
+            "阅读带锚定视口中心（纯滚动阅读时更稳）"
+          ],
+          "default": "cursor",
+          "description": "阅读带的定位方式。"
+        },
+        "cjkReading.lineFocus.dimOpacity": {
+          "type": "number",
+          "default": 0.28,
+          "minimum": 0.05,
+          "maximum": 1,
+          "description": "阅读带之外文本的不透明度（越小越“遮罩”）。1 = 不暗化。"
+        },
+        "cjkReading.lineFocus.bandColor": {
+          "type": "string",
+          "default": "rgba(127,127,127,0.10)",
+          "description": "阅读带底色高亮。留空 = 不高亮带内，只暗化带外。"
+        },
+        "cjkReading.typography.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "功能 3：阅读排版——应用黑体字体、1.8~2.0 倍行距、单行 25~35 字的狭长版面。可关闭；关闭时恢复被修改前的 editor.* 设置原值。"
+        },
+        "cjkReading.typography.fontFamily": {
+          "type": "string",
+          "default": "\"PingFang SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", monospace",
+          "description": "阅读字体：笔画粗细均匀、无装饰的无衬线黑体。留空 = 不修改字体。"
+        },
+        "cjkReading.typography.lineHeightRatio": {
+          "type": "number",
+          "default": 1.9,
+          "minimum": 0,
+          "maximum": 3,
+          "description": "行距倍数（1.8~2.0 推荐），按 当前字号 × 倍数 换算成 editor.lineHeight（px）。0 = 不修改行距。"
+        },
+        "cjkReading.typography.lineLength": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 120,
+          "description": "单行字数上限（25~35 推荐），实现为 editor.wordWrap=bounded + wordWrapColumn。0 = 不修改换行。"
+        },
+        "cjkReading.typography.target": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "global"
+          ],
+          "enumDescriptions": [
+            "写入工作区设置（推荐，随仓库隔离；无工作区时退回全局）",
+            "写入全局用户设置"
+          ],
+          "default": "workspace",
+          "description": "排版设置写入哪一层 settings.json。"
+        }
+      }
+    },
+    "keybindings": []
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@node-rs/jieba": "^2.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yoggsaron010-lang/CJK-ADHD-Reading-Typography.git"
+  },
+  "homepage": "https://github.com/yoggsaron010-lang/CJK-ADHD-Reading-Typography",
+  "bugs": {
+    "url": "https://github.com/yoggsaron010-lang/CJK-ADHD-Reading-Typography/issues"
+  }
+}

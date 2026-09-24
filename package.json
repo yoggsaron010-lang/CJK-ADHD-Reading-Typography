@@ -1,6 +1,6 @@
 {
   "name": "CJK-ADHD-Reading-Typography",
-  "displayName": "CJK-ADHD-Reading-Typography · 中文 ADHD 阅读辅助",
+  "displayName": "CJK ADHD Reading Typography ADHD中文阅读增强",
   "description": "行焦点/阅读尺 · 阅读排版（中文 ADHD 阅读辅助）",
   "version": "0.15.0",
   "publisher": "local",
@@ -35,7 +35,7 @@
       }
     ],
     "configuration": {
-      "title": "CJK-ADHD-Reading-Typography · 中文 ADHD 阅读辅助",
+      "title": "CJK ADHD Reading Typography ADHD中文阅读增强",
       "properties": {
         "cjkReading.wordBoundary.enabled": {
           "type": "boolean",

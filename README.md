@@ -4,7 +4,14 @@
 针对 **ADHD / 阅读障碍** 读者的 VSCode 排版增强。
 适用于 VSCode 能打开并显示的**任意文本文件**（md、html、代码、纯文本……）。
 
-所有视觉效果均为装饰器渲染，不修改文档文本——复制、保存、git 均不受影响。
+**关于是否影响文档/设置（准确版）：**
+
+- **词界显化、行焦点/阅读尺**：纯装饰器渲染（`createTextEditorDecorationType`），
+  不修改文档文本——复制、保存、git 均不受影响；
+- **阅读排版（Typography）**：会**修改 VSCode 编辑器设置**（`editor.fontFamily` /
+  `editor.lineHeight` / `editor.wordWrap(+Column)`），默认写入工作区
+  `.vscode/settings.json`——若该文件被 git 跟踪，则**可能产生 git diff**。
+  停用功能或卸载扩展时自动恢复被改前的原值（快照持久化在 workspaceState）。
 
 ---
 词界显化（Word-Level Spacing）
@@ -19,8 +26,9 @@
 - 实时防抖：`onDidChangeTextDocument` + 150ms 防抖，高速打字/大文件不卡顿；
 - 虚词粘附：`的/地/得/了/着/过/在/与/对/和/于/或/等` 向内粘附到前一个词块末尾
   （`认真地|学习了|知识`），避免把中文切得过于碎片化；
-- 安全正则：只对连续汉字块 `/[\u4e00-\u9fa5]+/g` 提取分词，安全绕过 HTML 标签、
-  代码块、Markdown 链接 URL 及英文单词；
+- 字符类过滤（非语法感知）：只对连续汉字块 `/[\u4e00-\u9fa5]+/g` 提取分词，
+  英文、数字、符号及 URL 中的非中文部分不参与分词。注意：它并**不理解**
+  HTML/Markdown/源码结构——HTML 属性、字符串字面量、注释里的中文仍会被分词；
 - 可关闭：命令面板 / 状态栏「词界」/ 设置均可。
 
 行焦点 / 阅读尺（Line Focus / Reading Mask）
@@ -47,6 +55,8 @@ ADHD 读者容易行间跳跃、被上下文分散、无意识回读（regressio
 实现方式：受控写入 `editor.fontFamily` / `editor.lineHeight` / `editor.wordWrap(+Column)`
 （VSCode 不支持扩展级的行距/版心渲染）。写入前自动快照原值（持久化在 workspaceState，
 中途崩溃也不会把扩展写入的值误当原值），关闭功能或卸载时自动恢复原值。
+**注意：这是本扩展唯一会修改 VSCode 设置（而非纯装饰器）的功能**；
+默认写入工作区 `.vscode/settings.json`，被 git 跟踪时会看到 git diff（停用后自动恢复）。
 可关闭：命令面板 / 状态栏「排版」/ 设置均可。
 
 ---
@@ -77,12 +87,14 @@ ADHD 读者容易行间跳跃、被上下文分散、无意识回读（regressio
 ```bash
 npm install
 npm run compile     # tsc 编译
-npm run selfcheck   # 分词边界自检（虚词粘附/安全正则/词块标记）
+npm run selfcheck   # 分词边界自检（与生产共用 src/core/segmenter.ts）
+npm test            # 分词核心单元测试（node --test）
 # VSCode 中 F5 启动 Extension Development Host 试用
 npx @vscode/vsce package   # 打包 .vsix 安装
 ```
 
-架构：`src/features/` 下每个功能实现 `Feature` 接口（`sync` + 可选 `updateEditor/clearEditor`），
+架构：分词纯逻辑在 `src/core/segmenter.ts`（无 VSCode 依赖，生产/自检/测试三方共用）；
+`src/features/` 下每个功能实现 `Feature` 接口（`sync` + 可选 `updateEditor/clearEditor`），
 新增功能（如语义加粗、意群分块、拼音注音）加一个模块即可挂入 `extension.ts` 的渲染管线。
 
 
@@ -93,17 +105,23 @@ npx @vscode/vsce package   # 打包 .vsix 安装
 - 字间距与拥挤效应呈 U 型关系（间距过大反而有害）；
 - 行距/版心：狭行长版面（~30 字符）可减少换行眼跳定位失败，行距 1.8~2.0 减少行间干扰。
 ## 如何安装
-项目里已有打包好的 cjk-reading-typography-0.14.0.vsix：                    
 
- 命令行：
+先打包生成 .vsix（版本号以 `package.json` 为准，下例为 0.16.0）：
 
- ```bash
-   code --install-extension "C:/Users/cjk-adhd-reading-typography for
- vscode/cjk-reading-typography-0.14.0.vsix"
- ```
+```bash
+cd "C:/Users/cjk-adhd-reading-typography for vscode"
+npm install && npm run compile
+npx @vscode/vsce package        # 生成 CJK-ADHD-Reading-Typography-<版本>.vsix
+```
 
- 或 VS Code 界面：
- 1. 打开 VS Code
- 2. 扩展面板（Ctrl+Shift+X）
- 3. 右上角 ··· 菜单 → 从 VSIX 安装...（Install from VSIX...）
- 4. 选择该 .vsix 文件     
+命令行安装：
+
+```bash
+code --install-extension CJK-ADHD-Reading-Typography-<版本>.vsix
+```
+
+或 VS Code 界面：
+1. 打开 VS Code
+2. 扩展面板（Ctrl+Shift+X）
+3. 右上角 ··· 菜单 → 从 VSIX 安装...（Install from VSIX...）
+4. 选择该 .vsix 文件

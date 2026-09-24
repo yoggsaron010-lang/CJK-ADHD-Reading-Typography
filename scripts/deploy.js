@@ -1,6 +1,6 @@
 /**
  * 手动部署脚本：解压 vsix → 部署目录 + 更新 extensions.json 注册表。
- * 用法: node scripts/deploy.js [version]
+ * 用法: node scripts/deploy.js [version]（缺省取 package.json 的 version）
  * 注意: 本机 code --install-extension 会挂起，故用手动部署。
  * Windows bash 的 /tmp 与 node 解析的 /tmp 不是同一目录，统一用项目内相对路径。
  */
@@ -8,13 +8,21 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const version = process.argv[2] || '0.13.0';
 const root = path.resolve(__dirname, '..');
-const vsix = path.join(root, `cjk-reading-typography-${version}.vsix`);
+let pkg;
+try {
+  pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+} catch (e) {
+  console.error('ERROR: failed to read/parse package.json:', String(e.message || e));
+  process.exit(1);
+}
+const version = process.argv[2] || pkg.version;
+const extId = `${pkg.publisher}.${pkg.name}`.toLowerCase();
+const vsix = path.join(root, `${pkg.name}-${version}.vsix`);
 const extDir = path.join(
   process.env.USERPROFILE || process.env.HOME,
   '.vscode', 'extensions',
-  `local.cjk-reading-typography-${version}`
+  `${extId}-${version}`
 );
 const regPath = path.join(
   process.env.USERPROFILE || process.env.HOME,
@@ -81,12 +89,12 @@ try {
   console.error('ERROR: failed to read/parse extensions.json:', String(e.message || e));
   process.exit(1);
 }
-const filtered = reg.filter((e) => e.identifier.id !== 'local.cjk-reading-typography');
+const filtered = reg.filter((e) => e.identifier.id !== extId);
 filtered.push({
-  identifier: { id: 'local.cjk-reading-typography' },
+  identifier: { id: extId },
   version,
   location: { scheme: 'file', path: extDir },
-  relativeLocation: `local.cjk-reading-typography-${version}`,
+  relativeLocation: `${extId}-${version}`,
   metadata: { source: 'vsix' },
 });
 fs.writeFileSync(regPath, JSON.stringify(filtered));
@@ -95,7 +103,7 @@ console.log('registry updated, entries:', filtered.length);
 // 4. 清理旧版本目录
 const extRoot = path.dirname(extDir);
 for (const d of fs.readdirSync(extRoot)) {
-  if (d.startsWith('local.cjk-reading-typography-') && d !== `local.cjk-reading-typography-${version}`) {
+  if (d.startsWith(extId + '-') && d !== `${extId}-${version}`) {
     fs.rmSync(path.join(extRoot, d), { recursive: true });
     console.log('removed old:', d);
   }

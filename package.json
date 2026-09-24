@@ -2,7 +2,7 @@
   "name": "CJK-ADHD-Reading-Typography",
   "displayName": "CJK ADHD Reading Typography ADHD中文阅读增强",
   "description": "行焦点/阅读尺 · 阅读排版（中文 ADHD 阅读辅助）",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -45,7 +45,7 @@
         "cjkReading.wordBoundary.spacing": {
           "type": "string",
           "default": "0.25em",
-          "description": "词块末尾间距（CSS margin-right 值）。推荐 0.2~0.3em，过大反而有害（U 型关系）。"
+          "description": "词块末尾间距（CSS margin-right 值，em）。控制面板滑动条范围 0.10~0.25em（默认 0.25em），右侧输入框可直接填 em 数值；过大反而有害（U 型关系）。"
         },
         "cjkReading.enabled": {
           "type": "boolean",
@@ -156,7 +156,10 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "selfcheck": "npm run compile && node scripts/selfcheck.js",
+    "test": "npm run compile && node --test tests/segmenter.test.js",
+    "verify": "node scripts/verify.js",
+    "package": "npx --yes @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^18.19.0",

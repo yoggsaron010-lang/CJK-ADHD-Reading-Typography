@@ -1,15 +1,25 @@
 /**
  * 部署后验证脚本：确认部署目录内容 + 注册表条目一致。
- * 用法: node scripts/verify.js [version]
+ * 用法: node scripts/verify.js [version]（缺省取 package.json 的 version）
  */
 const fs = require('fs');
 const path = require('path');
 
-const version = process.argv[2] || '0.13.0';
+const root = path.resolve(__dirname, '..');
+let pkg;
+let extPkg;
+try {
+  pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+} catch (e) {
+  console.error('ERROR: failed to read/parse package.json:', String(e.message || e));
+  process.exit(1);
+}
+const version = process.argv[2] || pkg.version;
+const extId = `${pkg.publisher}.${pkg.name}`.toLowerCase();
 const extDir = path.join(
   process.env.USERPROFILE || process.env.HOME,
   '.vscode', 'extensions',
-  `local.cjk-reading-typography-${version}`
+  `${extId}-${version}`
 );
 const regPath = path.join(
   process.env.USERPROFILE || process.env.HOME,
@@ -44,16 +54,16 @@ walk(extDir, '', tree);
 console.log(tree.join('\n'));
 
 console.log('\n=== package.json ===');
-const pkg = readJson(path.join(extDir, 'package.json'));
-console.log('version:', pkg.version, '| main:', pkg.main);
-const cmds = (pkg.contributes.commands || []).map((c) => c.command);
+extPkg = readJson(path.join(extDir, 'package.json'));
+console.log('version:', extPkg.version, '| main:', extPkg.main);
+const cmds = (extPkg.contributes.commands || []).map((c) => c.command);
 console.log('commands:', cmds.join(', '));
-const cfgKeys = Object.keys(pkg.contributes.configuration.properties || {});
+const cfgKeys = Object.keys(extPkg.contributes.configuration.properties || {});
 console.log('config keys:', cfgKeys.join(', '));
 
 console.log('\n=== extensions.json 注册表 ===');
 const reg = readJson(regPath);
-const cjk = reg.find((e) => e.identifier.id === 'local.cjk-reading-typography');
+const cjk = reg.find((e) => e.identifier.id === extId);
 console.log('version:', cjk.version);
 console.log('relativeLocation:', cjk.relativeLocation);
 console.log('location.path:', cjk.location.path);
@@ -65,6 +75,7 @@ for (const f of [
   'out/extension.js',
   'out/config.js',
   'out/panel.js',
+  'out/core/segmenter.js',
   'out/features/wordBoundary.js',
   'out/features/lineFocus.js',
   'out/features/typography.js',
@@ -74,13 +85,17 @@ for (const f of [
   console.log(fs.existsSync(p) ? '[OK]      ' : '[MISSING] ', f);
 }
 
-console.log('\n=== wordBoundary.js 含 jieba ===');
+console.log('\n=== segmenter.js 分词核心 ===');
+const seg = fs.readFileSync(path.join(extDir, 'out/core/segmenter.js'), 'utf8');
+console.log(seg.includes('@node-rs/jieba') ? '[OK] require(@node-rs/jieba) present' : '[MISSING] jieba require');
+console.log(seg.includes('Jieba.withDict') ? '[OK] Jieba.withDict present' : '[MISSING] Jieba.withDict');
+console.log(seg.includes('mergeParticles') ? '[OK] mergeParticles present' : '[MISSING] mergeParticles');
+console.log(seg.includes('mergeGroups') ? '[OK] mergeGroups present' : '[MISSING] mergeGroups');
+
+console.log('\n=== wordBoundary.js 引用共享模块 ===');
 const wb = fs.readFileSync(path.join(extDir, 'out/features/wordBoundary.js'), 'utf8');
-console.log(wb.includes('@node-rs/jieba') ? '[OK] require(@node-rs/jieba) present' : '[MISSING] jieba require');
-console.log(wb.includes('Jieba.withDict') ? '[OK] Jieba.withDict present' : '[MISSING] Jieba.withDict');
-console.log(!wb.includes('Segmenter') ? '[OK] Intl.Segmenter removed' : '[FAIL] Intl.Segmenter still present');
-console.log(wb.includes('mergeParticles') ? '[OK] mergeParticles present' : '[MISSING] mergeParticles');
-console.log(wb.includes('mergeGroups') ? '[OK] mergeGroups present' : '[MISSING] mergeGroups');
+console.log(wb.includes('core/segmenter') ? '[OK] require(../core/segmenter) present' : '[MISSING] segmenter require');
+console.log(wb.includes('Segmenter') ? '[FAIL] Intl.Segmenter present' : '[OK] Intl.Segmenter absent');
 
 console.log('\n=== jieba 运行时依赖打包 ===');
 for (const f of [

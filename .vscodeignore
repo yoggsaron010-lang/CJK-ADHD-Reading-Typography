@@ -11,6 +11,7 @@ node_modules/**
 !node_modules/@node-rs/jieba/**/*
 !node_modules/@node-rs/jieba-win32-x64-msvc/**
 !node_modules/@node-rs/jieba-win32-x64-msvc/**/*
+tests/**
 *.vsix
 .vsix-tmp/**
 .vsix-tmp.zip

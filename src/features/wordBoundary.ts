@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import { Jieba } from '@node-rs/jieba';
-import { dict } from '@node-rs/jieba/dict';
 import { Config, WordBoundaryConfig } from '../config';
+import { BoundaryMark, segmentLine } from '../core/segmenter';
 import { Feature, visibleLineSpan } from './types';
 
 /**
@@ -11,36 +10,34 @@ import { Feature, visibleLineSpan } from './types';
  * 把词界显式化可以降低词切分负担，改善 ADHD 读者的中文阅读体验。
  *
  * - 纯视觉渲染（无侵入）：用 TextEditorDecorationType 在词块末字符右侧
- *   加 CSS margin-right（默认 0.25em），不修改文档文本。
- * - jieba 分词：@node-rs/jieba（Rust 原生绑定，自带 jieba 词典），精确模式 + HMM。
- * - 虚词粘附：的/地/得/了/着/过 等向内粘附到前一词块末尾。
- * - 语义块合并：jieba 词块合并为 2~5 字语义块，避免单字碎片。
- * - 安全正则：只对连续汉字块提取分词，绕过 HTML 标签、代码块、URL、英文。
+ *   加 CSS margin-right（默认 0.25em），不修改文档文本，也不写任何设置。
+ * - 分词逻辑在 src/core/segmenter.ts（jieba 精确模式 + 虚词粘附 + 2~5 字语义块），
+ *   与 tests/、scripts/selfcheck.js 共用同一份实现。
+ * - 能力边界：只对连续汉字块分词，英文/数字/符号/URL 的非中文部分不处理；
+ *   但这**不是语法感知**——HTML 属性、字符串字面量、注释里的中文同样会被分词。
  */
 
-/** 连续汉字块（安全正则） */
-const CJK_RUN = /[\u4e00-\u9fa5]+/g;
+/** 分词缓存上限（LRU，条目=行）。防止长期会话无界增长。 */
+const CACHE_MAX = 4000;
 
-/** 虚词：粘附到前一词块末尾 */
-const PARTICLES = new Set([
-  '的', '地', '得', '了', '着', '过', '在', '与', '对', '和', '于', '或', '等',
-]);
-
-/** 词块边界：offset = 词块末字符在行内的 0-based 偏移 */
-interface BoundaryMark {
-  offset: number;
+interface CacheEntry {
+  text: string;
+  marks: BoundaryMark[];
 }
-
-/** jieba 单例（Rust 原生绑定，启动时加载一次词典） */
-const jieba: Jieba = Jieba.withDict(dict);
 
 export class WordBoundaryFeature implements Feature {
   readonly id = 'wordBoundary';
 
   private decoType: vscode.TextEditorDecorationType | undefined;
   private wb: WordBoundaryConfig | undefined;
-  /** 分词缓存：lineKey -> BoundaryMark[] */
-  private readonly cache = new Map<string, BoundaryMark[]>();
+  /**
+   * 分词缓存（LRU）：`uri:行号` -> { 该行文本, 边界 }。
+   *
+   * - 行文本参与命中校验：编辑过的行自动失效重算，不会读到过期结果；
+   *   且 key 不含行文本，旧版本条目被原地覆盖而非累积。
+   * - Map 保持插入顺序，命中时重插、超限时淘汰最旧条目（LRU）。
+   */
+  private readonly cache = new Map<string, CacheEntry>();
 
   isEnabled(cfg: Config): boolean {
     return cfg.wordBoundary.enabled;
@@ -59,18 +56,14 @@ export class WordBoundaryFeature implements Feature {
       return;
     }
     const doc = editor.document;
+    const uri = doc.uri.toString();
     const [start, end] = visibleLineSpan(editor, cfg);
     const spacing = this.wb.spacing;
     const deco: vscode.DecorationOptions[] = [];
 
     for (let ln = start; ln <= end; ln++) {
       const lineText = doc.lineAt(ln).text;
-      const key = `${doc.uri.toString()}:${ln}:${lineText}`;
-      let marks = this.cache.get(key);
-      if (!marks) {
-        marks = segmentLine(lineText);
-        this.cache.set(key, marks);
-      }
+      const marks = this.getOrCompute(`${uri}:${ln}`, lineText);
       for (const mark of marks) {
         // 在词块末字符之后插入视觉间距（after 装饰器，不修改文档）
         const pos = new vscode.Position(ln, mark.offset + 1);
@@ -99,85 +92,23 @@ export class WordBoundaryFeature implements Feature {
     this.decoType = undefined;
     this.cache.clear();
   }
-}
 
-/**
- * 对一行文本做 jieba 词界分词，返回每个词块末尾的字符偏移。
- *
- * 算法（jieba 风格）：
- * 1. jieba 精确模式分词（HMM 开启）
- * 2. 虚词粘附到前一词块
- * 3. 合并为 2~5 字语义块（贪心合并，避免单字块）
- */
-export function segmentLine(text: string): BoundaryMark[] {
-  const marks: BoundaryMark[] = [];
-  CJK_RUN.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = CJK_RUN.exec(text)) !== null) {
-    const blockStart = match.index;
-    const block = match[0];
-
-    // 1. jieba 精确模式分词（HMM 开启）
-    const rawWords = jieba.cut(block, true);
-
-    // 2. 虚词粘附
-    const words = mergeParticles(rawWords);
-
-    // 3. 合并 2~5 字语义块
-    const groups = mergeGroups(words);
-
-    // 4. 计算每组末字符的行内偏移
-    let offset = blockStart;
-    for (const g of groups) {
-      offset += g.length - 1;
-      marks.push({ offset });
-      offset += 1;
+  private getOrCompute(key: string, lineText: string): BoundaryMark[] {
+    const hit = this.cache.get(key);
+    if (hit && hit.text === lineText) {
+      // 刷新 LRU 位置
+      this.cache.delete(key);
+      this.cache.set(key, hit);
+      return hit.marks;
     }
-  }
-
-  return marks;
-}
-
-/** 虚词粘附：单字虚词合并到前一词块末尾 */
-function mergeParticles(words: string[]): string[] {
-  const result: string[] = [];
-  for (const w of words) {
-    if (result.length > 0 && w.length === 1 && PARTICLES.has(w)) {
-      result[result.length - 1] += w;
-    } else {
-      result.push(w);
-    }
-  }
-  return result;
-}
-
-/** 合并为 2~5 字语义块（jieba 风格贪心合并） */
-function mergeGroups(words: string[]): string[] {
-  const groups: string[] = [];
-  let buf = '';
-  for (const w of words) {
-    if (buf === '') {
-      buf = w;
-    } else if (buf.length + w.length <= 5) {
-      buf += w;
-    } else {
-      // 不足 2 字时继续合并，避免单字块
-      if (buf.length < 2) {
-        buf += w;
-      } else {
-        groups.push(buf);
-        buf = w;
+    const marks = segmentLine(lineText);
+    if (this.cache.size >= CACHE_MAX) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) {
+        this.cache.delete(oldest);
       }
     }
+    this.cache.set(key, { text: lineText, marks });
+    return marks;
   }
-  if (buf) {
-    // 尾部不足 2 字：回填到前一组
-    if (buf.length < 2 && groups.length > 0) {
-      groups[groups.length - 1] += buf;
-    } else {
-      groups.push(buf);
-    }
-  }
-  return groups;
 }

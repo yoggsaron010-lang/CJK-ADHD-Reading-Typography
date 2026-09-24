@@ -58,7 +58,7 @@ for (let i = 0; i < files.length; i++) {
   const content = fs.readFileSync(path.join(root, p));
   const isBinary = content.includes(0);
   const body = {
-    message: `feat: v0.14.0 — add ${p}`,
+    message: `feat: add ${p}`,
     content: content.toString('base64'),
     ...(isBinary ? { encoding: 'base64' } : {}),
   };

@@ -9,7 +9,8 @@ const root = path.resolve(__dirname, '..');
 const NEW_REPO = 'CJK-ADHD-Reading-Typography';
 const OLD_DISPLAY = 'CJK Reading Typography';
 const NEW_DISPLAY = 'CJK-ADHD-Reading-Typography';
-const NEW_VERSION = '0.15.0';
+// 版本号单一来源：package.json（不再硬编码）
+const NEW_VERSION = readJson('package.json').version;
 
 function readJson(rel) {
   try {

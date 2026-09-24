@@ -72,7 +72,7 @@ ADHD 读者容易行间跳跃、被上下文分散、无意识回读（regressio
 | `cjkReading.includeLanguages` | `[]` | 限定文件类型（装饰器功能），空 = 全部 |
 | `cjkReading.excludeLanguages` | `[]` | 排除文件类型（装饰器功能） |
 
- 开发
+开发
 
 ```bash
 npm install
@@ -92,3 +92,18 @@ npx @vscode/vsce package   # 打包 .vsix 安装
 - 空格减少汉语发展性阅读障碍儿童的视觉拥挤效应（华东师大，眼动研究）；
 - 字间距与拥挤效应呈 U 型关系（间距过大反而有害）；
 - 行距/版心：狭行长版面（~30 字符）可减少换行眼跳定位失败，行距 1.8~2.0 减少行间干扰。
+## 如何安装
+项目里已有打包好的 cjk-reading-typography-0.14.0.vsix：                    
+
+ 命令行：
+
+ ```bash
+   code --install-extension "C:/Users/cjk-adhd-reading-typography for
+ vscode/cjk-reading-typography-0.14.0.vsix"
+ ```
+
+ 或 VS Code 界面：
+ 1. 打开 VS Code
+ 2. 扩展面板（Ctrl+Shift+X）
+ 3. 右上角 ··· 菜单 → 从 VSIX 安装...（Install from VSIX...）
+ 4. 选择该 .vsix 文件     

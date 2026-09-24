@@ -106,15 +106,14 @@ npx @vscode/vsce package   # 打包 .vsix 安装
 - 行距/版心：狭行长版面（~30 字符）可减少换行眼跳定位失败，行距 1.8~2.0 减少行间干扰。
 ## 如何安装
 
-仓库已附带现成的 `.vsix` 文件，直接下载安装即可（无需自行打包）：
+仓库已附带现成的 `CJK-ADHD-Reading-Typography-0.16.0.vsix`，直接下载安装即可（无需自行打包）：
 
-1. 从 GitHub 仓库下载 `CJK-ADHD-Reading-Typography-<版本>.vsix`
-   （文件列表里最新的即是当前版本，旧版本一并保留）
+1. 从 GitHub 仓库下载 `CJK-ADHD-Reading-Typography-0.16.0.vsix`
 
 命令行安装：
 
 ```bash
-code --install-extension CJK-ADHD-Reading-Typography-<版本>.vsix
+code --install-extension CJK-ADHD-Reading-Typography-0.16.0.vsix
 ```
 
 或 VS Code 界面：
